@@ -42,9 +42,9 @@ extern "C" {
  * name to its replacement
  */
 struct rebinding {
-  const char *name; // 需要 hook 的函数名，c 字符串
-  void *replacement; // 新函数地址
-  void **replaced; // 原始函数地址的指针,为了可以执行系统真正的函数
+    const char *name;  // 需要 hook 的函数名，c 字符串
+    void *replacement; // 新函数地址
+    void **replaced;   // 原始函数地址的指针,为了可以执行系统真正的函数
 };
 
 /*
@@ -73,4 +73,3 @@ int rebind_symbols_image(void *header,
 #endif //__cplusplus
 
 #endif //fishhook_h
-

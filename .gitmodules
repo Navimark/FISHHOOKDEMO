@@ -1,0 +1,3 @@
+[submodule "spacecommander"]
+	path = spacecommander
+	url = git@git.moumentei.com:appforce/spacecommander.git
