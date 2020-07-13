@@ -7,48 +7,32 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "FC22B1BA-1191-437F-A23E-438168032471"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "FISHIHOOkDEMO/ViewController.m"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "56"
-            endingLineNumber = "56"
-            landmarkName = "-touchesBegan:withEvent:"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "762FCC9F-B6AA-42DC-8EA3-29F9B9A4BC49"
-            shouldBeEnabled = "Yes"
+            uuid = "A9CFCC4E-E1CF-4F40-B266-B6399E382F2A"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "FISHIHOOkDEMO/fishhook.c"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "244"
-            endingLineNumber = "244"
-            landmarkName = "rebind_symbols(rebindings, rebindings_nel)"
+            startingLineNumber = "122"
+            endingLineNumber = "122"
+            landmarkName = "perform_rebinding_with_section(rebindings, section, slide, symtab, strtab, indirect_symtab)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "7AD8AA2B-430A-4203-96E7-7CAB28F69056"
-            shouldBeEnabled = "Yes"
+            uuid = "FD9B2592-51E7-473B-984E-3794731F147C"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "FISHIHOOkDEMO/fishhook.c"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "250"
-            endingLineNumber = "250"
-            landmarkName = "rebind_symbols(rebindings, rebindings_nel)"
+            startingLineNumber = "163"
+            endingLineNumber = "163"
+            landmarkName = "perform_rebinding_with_section(rebindings, section, slide, symtab, strtab, indirect_symtab)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
