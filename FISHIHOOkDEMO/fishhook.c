@@ -97,7 +97,8 @@ static vm_prot_t get_protection(void *sectionStart) {
 #else
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT;
     vm_region_basic_info_data_t info;
-    kern_return_t info_ret = vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, &count, &object);
+    kern_return_t info_ret = vm_region(task, &address, &size, VM_REGION_BASIC_INFO, (vm_region_info_t)&info, \
+                                       &count, &object);
 #endif
     if (info_ret == KERN_SUCCESS) {
       return info.protection;
@@ -114,16 +115,20 @@ static void perform_rebinding_with_section(struct rebindings_entry *rebindings,
                                              char *strtab,
                                              uint32_t *indirect_symtab) {
     const bool isDataConst = strcmp(section->segname, SEG_DATA_CONST) == 0;
-    // __DATA 和 __DATA_CONST 的延迟和非延迟绑定 section 的 reserved1 字段
-    //section.name = __got, reserved1=31; section.name = __la_symbol_ptr, reserved1 = 34
-    // 通过在间接跳转表中偏移 section->reserved1，找到当前 section （可能为__got 或 __la_symbol_ptr）第一个符号表在间接跳转表中的位置
+    /* __DATA 和 __DATA_CONST 的延迟和非延迟绑定 section 的 reserved1 字段
+    section.name = __got, reserved1=31; section.name = __la_symbol_ptr, reserved1 = 34
+     通过在间接跳转表中偏移 section->reserved1，找到当前 section （可能为__got 或 __la_symbol_ptr）第一个符号表
+            在间接跳转表中的位置
+     */
     uint32_t *indirect_symbol_indices = indirect_symtab + section->reserved1;
     if (isMainImage) {// FISHIHOOkDEMO
         printf("Got U!\n");
     }
-    // 1. 二级指针，指向当前 section 的头部
-    // 2. 当前 Section 是 __DATA 类型 Section，懒加载（或非懒加载）符号表里面的每一项的值是一个地址，虽然初始值可能不相同，但最终的预期都是指向各自的真实函数的地址
-    // 3. 对于我们来说，需要修改的是指针指向的指针的值，所以此处直接申明为二级指针
+    /** 1. 二级指针，指向当前 section 的头部
+    2. 当前 Section 是 __DATA 类型 Section，懒加载（或非懒加载）符号表里面的每一项的值是一个地址，
+        虽然初始值可能不相同，但最终的预期都是指向各自的真实函数的地址
+    3. 对于我们来说，需要修改的是指针指向的指针的值，所以此处直接申明为二级指针
+     */
     void **indirect_symbol_bindings = (void **)((uintptr_t)slide + section->addr);
     vm_prot_t oldProtection = VM_PROT_READ;
     if (isDataConst) {
@@ -133,7 +138,9 @@ static void perform_rebinding_with_section(struct rebindings_entry *rebindings,
     }
     // 名字为 __got 或 __la_symbol_ptr 的 Section 就是存放一系列函数地址的列表，所以将 sizeof(void *) 作为循环步进长度
     for (uint i = 0; i < section->size / sizeof(void *); i++) {
-        // 相当于是取 indirect_symbol_indices 指向地址偏移 (sizeof(uint32_t *) * i) 处的值，这是一个索引，可以在 symbol table 中找到具体的 symbol 结构（nlist_64）
+        /* 相当于是取 indirect_symbol_indices 指向地址偏移 (sizeof(uint32_t *) * i) 处的值，
+                    这是一个索引，可以在 symbol table 中找到具体的 symbol 结构（nlist_64）
+         */
       uint32_t symtab_index = indirect_symbol_indices[i];
       if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
           symtab_index == (INDIRECT_SYMBOL_LOCAL   | INDIRECT_SYMBOL_ABS)) {
@@ -142,27 +149,35 @@ static void perform_rebinding_with_section(struct rebindings_entry *rebindings,
         // 在 symbol table （nlist_64） 中得到当前符号在字符串表中的偏移，并在字符串表中取到当前符号的名字（字符串）
       uint32_t strtab_offset = symtab[symtab_index].n_un.n_strx;
       char *symbol_name = strtab + strtab_offset;
-        // 字符串长度为 0 或者为 1 时，第 0 或第 1 个位置肯定是 '\0'，任意值与它 && 运算时一定为 false。为 false 时即字符串说明长度小于等于 1
+        /* 字符串长度为 0 或者为 1 时，第 0 或第 1 个位置肯定是 '\0'，任意值与它 && 运算时一定为 false。
+            为 false 时即字符串说明长度小于等于 1
+         */
       bool symbol_name_longer_than_1 = symbol_name[0] && symbol_name[1];
       struct rebindings_entry *cur = rebindings;
       while (cur) { // 典型的链表遍历
         for (uint j = 0; j < cur->rebindings_nel; j++) {
-            // 比较当前遍历的字符串是否和待替换的相同
-            // `[]`的优先级高于`&`，所以 `&symbol_name[1]` 取的是去掉第一个字符后的字符串（字符串总是以'\0'为终止条件），即去掉编译器在函数前面添加的"_"
-            // 这也是为什么要求字符串长度大于 1 的原因
+            /* 比较当前遍历的字符串是否和待替换的相同
+             `[]`的优先级高于`&`，所以 `&symbol_name[1]` 取的是去掉第一个字符后的字符串（字符串总是以'\0'为终止条件），
+                        即去掉编译器在函数前面添加的"_"
+             这也是为什么要求字符串长度大于 1 的原因
+             */
           if (symbol_name_longer_than_1 &&
               strcmp(&symbol_name[1], cur->rebindings[j].name) == 0) {
             if (cur->rebindings[j].replaced != NULL &&
                 indirect_symbol_bindings[i] != cur->rebindings[j].replacement) {
-                // indirect_symbol_bindings[i] 存放的是系统原来的实现函数的指针：
-                //      对于懒加载符号，如果在这之前已经被绑定过，indirect_symbol_bindings[i] 就是该符号真实地址
-                //      如果没有被绑定过，indirect_symbol_bindings[i] 就指向 __TEXT.__stub_helper 中
-                // 不管怎么样，系统原来的实现地址（也可能是间接地址），会被存入 replaced 指针指向的空间中
-                // replaced 是一个二级指针，值为二级指针的地址，初始时指向的内容为 0x00
-                // 二级指针的目的：为了和 indirect_symbol_bindings 的结构保持一致，以便在首次调用时能够借助 __TEXT.__stub_helper 将符号的真实地址写回来
+                /* indirect_symbol_bindings[i] 存放的是系统原来的实现函数的指针：
+                      对于懒加载符号，如果在这之前已经被绑定过，indirect_symbol_bindings[i] 就是该符号真实地址
+                      如果没有被绑定过，indirect_symbol_bindings[i] 就指向 __TEXT.__stub_helper 中
+                 不管怎么样，系统原来的实现地址（也可能是间接地址），会被存入 replaced 指针指向的空间中
+                 replaced 是一个二级指针，值为二级指针的地址，初始时指向的内容为 0x00
+                 二级指针的目的：为了和 indirect_symbol_bindings 的结构保持一致，
+                        以便在首次调用时能够借助 __TEXT.__stub_helper 将符号的真实地址写回来
+                 */
               *(cur->rebindings[j].replaced) = indirect_symbol_bindings[i];
             }
-              // 新的函数地址写入到了当前 Section 的符号表项目中，以后在调用时读取符号表的此项目 Data 时，读取的就是 replacement 的地址
+              /* 新的函数地址写入到了当前 Section 的符号表项目中，以后在调用时读取符号表的此项目 Data 时，
+                        读取的就是 replacement 的地址
+               */
             indirect_symbol_bindings[i] = cur->rebindings[j].replacement;
               // 如果找到了，对符号表 Section 中的下一个符号进行检查
             goto symbol_loop;
@@ -202,7 +217,8 @@ static void rebind_symbols_for_image(struct rebindings_entry *rebindings,
       return;
     }
     
-    const char *pathname = info.dli_fname; // 如果 pathname 以 /private/var 开头，可以认为就是 execute 这个 image
+    // 如果 pathname 以 /private/var 开头，可以认为就是 execute 这个 image
+    const char *pathname = info.dli_fname;
     
     if (strlen(pathname) > 8) {
         char subPathname[9] = {'\0'};
@@ -217,7 +233,10 @@ static void rebind_symbols_for_image(struct rebindings_entry *rebindings,
     segment_command_t *linkedit_segment = NULL;
     struct symtab_command* symtab_cmd = NULL;
     struct dysymtab_command* dysymtab_cmd = NULL;
-    // 通过遍历找到 Load Commnads 中 LC_SEGMENT_64.info（）、LC_SYMTAB(规定了 symbol table 和 string table 在文件中的位置与大小)、LC_DYSYMTAB，并用指针分别指向他们
+    /* 通过遍历找到 Load Commnads 中 LC_SEGMENT_64.info（）、LC_SYMTAB(规定
+                了 symbol table 和 string table 在文件中的位置与大小)、LC_DYSYMTAB，
+                    并用指针分别指向他们
+     */
     uintptr_t cur = (uintptr_t)header + sizeof(mach_header_t);
     for (uint i = 0; i < header->ncmds; i++, cur += cur_seg_cmd->cmdsize) {
       cur_seg_cmd = (segment_command_t *)cur;
@@ -237,10 +256,11 @@ static void rebind_symbols_for_image(struct rebindings_entry *rebindings,
       return;
     }
 
-    // Find base symbol/string table addresses
-    // ASLR 地址 + linkedit 描述的 segment 被加载到内存后的地址 - linkedit 在文件中的偏移 = 文件开始位置在内存中的地址（file Offset 为 0 的地方）的值
-    // 如果 16 进制查看（ p/x linkedit_base）其值，会发现和 header 指针相同
-    //
+    /* Find base symbol/string table addresses
+     ASLR 地址 + linkedit 描述的 segment 被加载到内存后的地址 - linkedit 在文件中的偏移 =
+                        文件开始位置在内存中的地址（file Offset 为 0 的地方）的值
+     如果 16 进制查看（ p/x linkedit_base）其值，会发现和 header 指针相同
+    */
     uintptr_t linkedit_base = (uintptr_t)slide + linkedit_segment->vmaddr - linkedit_segment->fileoff;
     // 得到 LC_SYMTAB 在内存中的地址。体现了 Mach-O 的某一处相对于文件偏移的位置，是如何对应到运行时的内存地址
     // symbol table 是一个 nlist_64 结构体数组，所以指向结构体数组指针
@@ -263,8 +283,13 @@ static void rebind_symbols_for_image(struct rebindings_entry *rebindings,
             strcmp(cur_seg_cmd->segname, SEG_DATA_CONST) != 0) {
           continue;
         }
-          // segment.name 为 __DATA 或 __DATA_CONST，因为动态链接库的符号的 stub 就在里面指定。__TEXT.__stubs 的这里不用管，因为当某一个延迟绑定的函数被调用时，一定会被转 __DATA_CONST和__DATA的 __got 或 __la_symbol_ptr区域
-          // 非延迟绑定的符号(来自于 __DATA_CONST.__got) 也能被重新绑定，因为它和延迟绑定的符号工作机制相同，只是绑定时机不同
+          /* segment.name 为 __DATA 或 __DATA_CONST，因为动态链接库的符号的 stub 就在里面指定。
+           __TEXT.__stubs 的这里不用管，因为当某一个延迟绑定的函数被调用时，
+           一定会被转 __DATA_CONST和__DATA的 __got 或 __la_symbol_ptr区域
+           
+           非延迟绑定的符号(来自于 __DATA_CONST.__got) 也能被重新绑定，
+           因为它和延迟绑定的符号工作机制相同，只是绑定时机不同
+           */
         for (uint j = 0; j < cur_seg_cmd->nsects; j++) {
           section_t *sect =
             (section_t *)(cur + sizeof(segment_command_t)) + j;
@@ -310,11 +335,12 @@ int rebind_symbols(struct rebinding rebindings[], size_t rebindings_nel) {
     if (retval < 0) {
       return retval;
     }
-    // If this was the first call, register callback for image additions (which is also invoked for
-    // existing images, otherwise, just run on existing images
+
     if (!_rebindings_head->next) {
         /**
-            _dyld_register_func_for_add_image 被调用时，已经被 dyld 加载的 image 会立刻回调，后续被 dyld 新加载的 image 也会触发回调
+            _dyld_register_func_for_add_image 被调用时，
+                已经被 dyld 加载的 image 会立刻回调，
+                后续被 dyld 新加载的 image 也会触发回调
          */
       _dyld_register_func_for_add_image(_rebind_symbols_for_image);
     } else {

@@ -23,8 +23,7 @@
         .name = "NSLog",
         .replacement = my_NSLog,
         // 系统的 NSlog 的指针被放到了这里
-        .replaced = (void *) &sys_nslog
-    };
+        .replaced = (void *) &sys_nslog};
     struct rebinding rebs[1] = {nslog}; // 数组的目的：可以一次进行多个 hook
     rebind_symbols(rebs, 1);
     NSLog(@"end");
